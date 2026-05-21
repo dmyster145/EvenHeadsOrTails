@@ -1,0 +1,27 @@
+# Dependencies, build, and environment
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.env.local
+*.log
+dist/
+build/
+*.egg-info/
+
+# Excluded from check-in (local only)
+.cursor/rules/
+docs/
+.claude/
+
+# Packaged app artifact (reproducible via `npm run pack`)
+*.ehpk
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*~

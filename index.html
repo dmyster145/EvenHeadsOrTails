@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+    <title>Heads or Tails — Coin for Even Realities G2</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --tc-1st: #232323;
+        --tc-2nd: #7B7B7B;
+        --bc-1st: #FFFFFF;
+        --bc-2nd: #F6F6F6;
+        --bc-3rd: #EEEEEE;
+        --bc-4th: #E4E4E4;
+        --bc-accent: #FEF991;
+
+        --bg-primary: var(--bc-3rd);
+        --bg-secondary: var(--bc-2nd);
+        --bg-card: var(--bc-1st);
+        --text-primary: var(--tc-1st);
+        --text-secondary: var(--tc-2nd);
+        --accent: var(--bc-accent);
+        --accent-dark: #E5E082;
+        --border: var(--bc-4th);
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html { scroll-behavior: smooth; }
+
+      body {
+        font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        line-height: 1.5;
+        min-height: 100vh;
+        font-size: 15px;
+        font-weight: 400;
+        letter-spacing: -0.15px;
+        -webkit-font-smoothing: antialiased;
+        touch-action: manipulation;
+        -webkit-text-size-adjust: 100%;
+        overscroll-behavior: none;
+      }
+
+      #app { display: none; }
+
+      .container {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 24px 12px;
+      }
+
+      .header { text-align: center; padding: 16px 0 0; margin-bottom: 12px; }
+      .logo {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 8px; margin-bottom: 12px;
+      }
+      .logo-text {
+        font-size: 24px; font-weight: 600;
+        letter-spacing: 1px; color: var(--text-primary);
+      }
+      .subtitle {
+        color: var(--text-secondary);
+        font-size: 13px; font-weight: 400;
+        letter-spacing: -0.13px; margin-top: 8px;
+      }
+
+      .toc {
+        background: var(--bg-card);
+        border-radius: 6px;
+        padding: 16px;
+        margin-bottom: 24px;
+      }
+      .toc h2 {
+        font-size: 11px; font-weight: 500;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        color: var(--text-secondary); margin-bottom: 16px;
+      }
+      .toc-list {
+        list-style: none;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 6px;
+      }
+      .toc-list a {
+        color: var(--text-primary);
+        text-decoration: none;
+        font-size: 13px; font-weight: 400;
+        letter-spacing: -0.13px;
+        display: block;
+        padding: 6px 10px;
+        background: var(--accent);
+        border-radius: 6px;
+        transition: background 0.2s, transform 0.2s;
+      }
+      .toc-list a:hover { background: var(--accent-dark); transform: translateY(-1px); }
+
+      .section { margin-bottom: 12px; }
+
+      details {
+        background: var(--bg-card);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      details[open] { box-shadow: 0 0 0 2px var(--accent); }
+
+      summary {
+        padding: 16px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 17px;
+        letter-spacing: -0.17px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        user-select: none;
+        list-style: none;
+        transition: background 0.2s;
+      }
+      summary::-webkit-details-marker { display: none; }
+      summary::before {
+        content: '▸';
+        font-size: 12px;
+        color: var(--text-primary);
+        background: var(--accent);
+        width: 20px; height: 20px;
+        display: flex; align-items: center; justify-content: center;
+        border-radius: 4px;
+        transition: transform 0.2s;
+      }
+      details[open] summary::before { transform: rotate(90deg); }
+      summary:hover { background: var(--bg-secondary); }
+
+      .section-content { padding: 0 16px 16px; color: var(--text-secondary); }
+      .section-content h3 {
+        color: var(--text-primary);
+        font-size: 15px; font-weight: 500;
+        letter-spacing: -0.15px;
+        margin: 16px 0 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--border);
+      }
+      .section-content h3:first-child { margin-top: 0; }
+      .section-content p {
+        margin: 8px 0;
+        font-size: 15px; font-weight: 300;
+        letter-spacing: -0.15px;
+      }
+      .section-content ul, .section-content ol {
+        margin: 8px 0 8px 20px;
+        font-size: 15px; font-weight: 300;
+        letter-spacing: -0.15px;
+        padding-left: 8px;
+      }
+      .section-content li { margin: 6px 0; }
+
+      .gesture-grid { display: grid; gap: 6px; margin: 12px 0; }
+      .gesture-card {
+        background: var(--bg-secondary);
+        border-radius: 6px;
+        padding: 12px 16px;
+        font-size: 15px; font-weight: 300;
+      }
+      .gesture-card strong {
+        color: var(--text-primary);
+        display: block;
+        margin-bottom: 4px;
+        font-weight: 500;
+      }
+
+      .tip {
+        background: var(--accent);
+        padding: 12px 16px;
+        margin: 12px 0;
+        border-radius: 6px;
+        font-size: 15px; font-weight: 300;
+      }
+      .tip strong { color: var(--text-primary); font-weight: 500; }
+
+      .footer {
+        text-align: center;
+        padding: 24px 0;
+        margin-top: 24px;
+        color: var(--text-secondary);
+        font-size: 11px; font-weight: 400;
+        letter-spacing: -0.11px;
+      }
+
+      .mirror {
+        margin: 0 auto 24px;
+        max-width: 100%;
+      }
+
+      .mirror h2 {
+        font-size: 11px; font-weight: 500;
+        text-transform: uppercase; letter-spacing: 0.5px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+      }
+
+      .mirror-frame {
+        position: relative;
+        width: min(576px, 100%);
+        aspect-ratio: 576 / 288;
+        background: #000;
+        border-radius: 6px;
+        overflow: hidden;
+        container-type: size;
+        margin: 0 auto;
+      }
+
+      .mirror-frame pre,
+      .mirror-frame .mirror-status {
+        position: absolute;
+        margin: 0;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 9.4cqb;
+        line-height: 9.4cqb;
+        color: #3CFA44;
+        white-space: pre;
+        overflow: hidden;
+        pointer-events: none;
+      }
+
+      .mirror-frame pre {
+        inset: 0;
+        padding: 1.4cqb 0.69cqi;
+      }
+
+      .mirror-frame .mirror-status {
+        left: 0;
+        top: 86.1cqb;
+        width: 100%;
+        height: 13.9cqb;
+        padding: 2cqb 0.69cqi;
+        text-align: center;
+      }
+
+      .mirror-frame canvas {
+        position: absolute;
+        left: 37.5cqi;
+        top: 25cqb;
+        width: 25cqi;
+        height: 50cqb;
+        image-rendering: pixelated;
+      }
+
+      .mirror-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 12px;
+        padding: 12px 16px;
+        background: var(--bg-card);
+        border-radius: 6px;
+        font-size: 15px;
+        font-weight: 400;
+        letter-spacing: -0.15px;
+      }
+
+      .mirror-controls label {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 40px;
+        height: 22px;
+        flex-shrink: 0;
+      }
+
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        inset: 0;
+        background-color: var(--bc-4th);
+        transition: background-color 0.2s;
+        border-radius: 22px;
+      }
+
+      .toggle-slider::before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 2px;
+        top: 2px;
+        background-color: #fff;
+        transition: transform 0.2s;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+      }
+
+      .toggle-switch input:checked + .toggle-slider {
+        background-color: var(--accent-dark);
+      }
+
+      .toggle-switch input:checked + .toggle-slider::before {
+        transform: translateX(18px);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+
+    <div class="container">
+      <header class="header">
+        <div class="logo">
+          <span class="logo-text">HEADS OR TAILS</span>
+        </div>
+        <p class="subtitle">Coin flipper for Even Realities G2</p>
+      </header>
+
+      <section class="mirror">
+        <h2>Preview</h2>
+        <div class="mirror-frame" id="mirror-frame">
+          <pre id="mirror-drizzle"></pre>
+          <canvas id="mirror-coin" width="144" height="144"></canvas>
+          <div class="mirror-status" id="mirror-status"></div>
+        </div>
+        <div class="mirror-controls">
+          <label>
+            <span>Background pattern</span>
+            <span class="toggle-switch">
+              <input type="checkbox" id="bg-toggle" checked />
+              <span class="toggle-slider"></span>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <nav class="toc">
+        <h2>Quick Navigation</h2>
+        <ul class="toc-list">
+          <li><a href="#getting-started">Getting Started</a></li>
+          <li><a href="#controls">Controls</a></li>
+          <li><a href="#display">Display</a></li>
+        </ul>
+      </nav>
+
+      <section class="section" id="getting-started">
+        <details open>
+          <summary>Getting Started</summary>
+          <div class="section-content">
+            <p>Swipe up to flip. Results are 50/50.</p>
+          </div>
+        </details>
+      </section>
+
+      <section class="section" id="controls">
+        <details open>
+          <summary>Controls</summary>
+          <div class="section-content">
+            <p>Use the G2 temple touchpads or the R1 ring.</p>
+
+            <div class="gesture-grid">
+              <div class="gesture-card">
+                <strong>Swipe Up</strong>
+                Flips the coin.
+              </div>
+
+              <div class="gesture-card">
+                <strong>Double Tap</strong>
+                Opens the exit prompt.
+              </div>
+            </div>
+
+            <div class="tip">
+              <strong>Tip:</strong> Wait for the result before flipping again.
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section class="section" id="display">
+        <details open>
+          <summary>Display</summary>
+          <div class="section-content">
+            <h3>Layout</h3>
+            <ul>
+              <li><strong>Background:</strong> Unicode drizzle. The palette shifts during a flip.</li>
+              <li><strong>Coin:</strong> Centered on screen.</li>
+              <li><strong>Status:</strong> Bottom line. Prompts and results.</li>
+            </ul>
+
+            <h3>Drizzle</h3>
+            <ul>
+              <li><strong>Idle:</strong> <code>· °</code></li>
+              <li><strong>Rising:</strong> <code>↑ ▲ △</code></li>
+              <li><strong>Falling:</strong> <code>↓ ▼ ▽</code></li>
+            </ul>
+          </div>
+        </details>
+      </section>
+
+      <footer class="footer">
+        <p>Heads or Tails <span id="app-version"></span> | Built for Even Realities G2</p>
+      </footer>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+    <script>
+      function openSectionForHash(idOrEmpty) {
+        const id = idOrEmpty != null ? idOrEmpty : window.location.hash.substring(1);
+        if (!id) return;
+        const section = document.getElementById(id);
+        if (section) {
+          const details = section.querySelector('details');
+          if (details) details.setAttribute('open', '');
+        }
+      }
+      window.addEventListener('hashchange', function () { openSectionForHash(); });
+      document.addEventListener('click', function (e) {
+        const a = e.target.closest('a[href^="#"]');
+        if (!a) return;
+        const id = a.getAttribute('href').substring(1);
+        if (id) openSectionForHash(id);
+      });
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { openSectionForHash(); });
+      } else {
+        openSectionForHash();
+      }
+    </script>
+  </body>
+</html>
