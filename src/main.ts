@@ -24,6 +24,7 @@ import {
 import { loadCoinAssets } from './assets'
 import { createFlipController, IDLE_STATUS } from './flip'
 import { enqueue } from './bridgeQueue'
+import { activateKeepAlive, isKeepAliveActive } from './keepAlive'
 import { spreadText } from './text'
 import { setupPreview, setupToggle, primeToggle } from './preview'
 import {
@@ -235,17 +236,15 @@ function showExitDialog(): void {
 }
 
 // Pause background animation while the app is hidden/locked. Otherwise the
-// drizzle ticker and result blink keep queuing BLE writes that can't complete
-// (timers throttle, BLE stalls), piling up a backlog that drains slowly on
-// resume and makes the app feel sluggish.
+// drizzle ticker keeps queuing BLE writes that can't complete (timers throttle,
+// BLE stalls), piling up a backlog that drains slowly on resume and makes the
+// app feel sluggish.
 function pauseActivity(): void {
   stopDrizzleTicker()
-  flip.pause()
 }
 
 function resumeActivity(): void {
   startDrizzleTicker()
-  flip.resume()
 }
 
 // Device lock / app switch does not always fire the SDK foreground events, but
@@ -283,6 +282,15 @@ function handleBridgeEvent(event: EvenHubEvent): void {
   const isDoubleClick = sysType === OsEventTypeList.DOUBLE_CLICK_EVENT
   const isSwipeUp = textType === OsEventTypeList.SCROLL_TOP_EVENT
   const isSwipeDown = textType === OsEventTypeList.SCROLL_BOTTOM_EVENT
+
+  // First user gesture activates the WebView keep-alive. Must run from a gesture
+  // context (autoplay policy), so it lives here on the input path.
+  if (
+    (isSingleClick || isDoubleClick || isSwipeUp || isSwipeDown) &&
+    !isKeepAliveActive()
+  ) {
+    activateKeepAlive()
+  }
 
   if (flip.isResultShowing()) {
     if (isSwipeUp) {

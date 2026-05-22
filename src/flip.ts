@@ -151,7 +151,7 @@ export function createFlipController({
 
     resultShowing = true
     busy = false
-    startBlink(result === 'heads' ? STATUS_HEADS : STATUS_TAILS)
+    //startBlink(result === 'heads' ? STATUS_HEADS : STATUS_TAILS)
   }
 
   return {
