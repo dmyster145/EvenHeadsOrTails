@@ -14,13 +14,11 @@ const STATUS_PAD = 4
 const STATUS_INNER_W = CANVAS_W - 2 * STATUS_PAD
 
 export const IDLE_STATUS = centerText(
-  '△  Swipe up to flip  △',
+  '↑  Swipe up to flip  ↑',
   STATUS_INNER_W,
 )
-const STATUS_FLIPPING = centerText('flipping', STATUS_INNER_W)
-const STATUS_LANDING = centerText('landing', STATUS_INNER_W)
-const STATUS_HEADS = centerText('>>  HEADS  <<', STATUS_INNER_W)
-const STATUS_TAILS = centerText('>>  TAILS  <<', STATUS_INNER_W)
+const STATUS_HEADS = centerText('↑  HEADS  ↑', STATUS_INNER_W)
+const STATUS_TAILS = centerText('↑  TAILS  ↑', STATUS_INNER_W)
 const STATUS_BLANK = ' '
 
 const ROTATIONS = 1
@@ -31,12 +29,15 @@ export interface FlipController {
   trigger(): void
   isResultShowing(): boolean
   dismissResult(): Promise<void>
+  pause(): void
+  resume(): void
 }
 
 interface Deps {
   bridge: EvenAppBridge
   assets: CoinAssets
   setPhase(phase: DrizzlePhase): void
+  onResult(result: 'heads' | 'tails'): void
   preview?: Preview | null
 }
 
@@ -44,11 +45,13 @@ export function createFlipController({
   bridge,
   assets,
   setPhase,
+  onResult,
   preview,
 }: Deps): FlipController {
   let busy = false
   let resultShowing = false
   let blinkTimer: ReturnType<typeof setInterval> | null = null
+  let blinkText: string | null = null
 
   function clearBlink(): void {
     if (blinkTimer !== null) {
@@ -59,10 +62,18 @@ export function createFlipController({
 
   function startBlink(resultText: string): void {
     clearBlink()
+    blinkText = resultText
     let on = true
+    let inFlight = false
     blinkTimer = setInterval(() => {
+      // Skip while a write is in flight so a slow BLE link can't accumulate a
+      // backlog of blink frames that drains slowly.
+      if (inFlight) return
       on = !on
-      void setStatus(on ? resultText : STATUS_BLANK)
+      inFlight = true
+      void setStatus(on ? resultText : STATUS_BLANK).finally(() => {
+        inFlight = false
+      })
     }, BLINK_MS)
   }
 
@@ -99,19 +110,22 @@ export function createFlipController({
 
   async function runFlip(): Promise<void> {
     busy = true
-    const result: CoinFrame = Math.random() < 0.5 ? 'heads' : 'tails'
+    // Swipe feedback: rain up-arrows and clear the status. setPhase runs
+    // synchronously with the swipe; the blank follows so the coin tumbles
+    // against an empty status bar until the result lands.
+    setPhase('up')
+    await setStatus(STATUS_BLANK)
+
+    const result: 'heads' | 'tails' =
+      crypto.getRandomValues(new Uint8Array(1))[0] < 128 ? 'heads' : 'tails'
 
     const settle: CoinFrame =
       result === 'heads' ? 'headsHalf' : 'tailsHalf'
+    const rotated: CoinFrame =
+      result === 'heads' ? 'tailsHalfRotated' : 'headsHalfRotated'
     const frames: CoinFrame[] = []
     for (let r = 0; r < ROTATIONS; r++) {
-      frames.push(
-        'headsHalf',
-        'headsHalfRotated',
-        'tailsHalfRotated',
-        settle,
-        settle,
-      )
+      frames.push(rotated, settle)
     }
     frames[frames.length - 1] = result
 
@@ -124,16 +138,13 @@ export function createFlipController({
         : i < apexIdx
           ? 'up'
           : 'down'
-      const status = isLast
-        ? result === 'heads'
-          ? STATUS_HEADS
-          : STATUS_TAILS
-        : phase === 'up'
-          ? STATUS_FLIPPING
-          : STATUS_LANDING
 
       setPhase(phase)
-      await setStatus(status)
+      if (isLast) {
+        // Record + show the result together so the tally updates in sync.
+        onResult(result)
+        await setStatus(result === 'heads' ? STATUS_HEADS : STATUS_TAILS)
+      }
       await sendImage(frames[i])
       if (!isLast) await delay(FRAME_HOLD_MS)
     }
@@ -161,8 +172,17 @@ export function createFlipController({
     async dismissResult() {
       if (!resultShowing) return
       resultShowing = false
+      blinkText = null
       clearBlink()
       await setStatus(IDLE_STATUS)
+    },
+    // Stop the blink timer while the app is hidden/locked so it doesn't queue
+    // BLE writes that pile up and drain slowly on resume.
+    pause() {
+      clearBlink()
+    },
+    resume() {
+      if (resultShowing && blinkText !== null) startBlink(blinkText)
     },
   }
 }

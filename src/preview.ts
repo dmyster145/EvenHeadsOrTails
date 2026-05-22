@@ -1,6 +1,7 @@
 export interface Preview {
   updateDrizzle(content: string): void
   updateStatus(content: string): void
+  updateTally(heads: string, tails: string): void
   updateCoin(bytes: Uint8Array): void
 }
 
@@ -45,10 +46,12 @@ function paintCoin(canvas: HTMLCanvasElement, bytes: Uint8Array): void {
 export function setupPreview(): Preview | null {
   const drizzleEl = document.getElementById('mirror-drizzle')
   const statusEl = document.getElementById('mirror-status')
+  const headsEl = document.getElementById('mirror-heads')
+  const tailsEl = document.getElementById('mirror-tails')
   const coinCanvas = document.getElementById(
     'mirror-coin',
   ) as HTMLCanvasElement | null
-  if (!drizzleEl || !statusEl || !coinCanvas) return null
+  if (!drizzleEl || !statusEl || !headsEl || !tailsEl || !coinCanvas) return null
 
   return {
     updateDrizzle(content) {
@@ -57,36 +60,28 @@ export function setupPreview(): Preview | null {
     updateStatus(content) {
       statusEl.textContent = content.trim()
     },
+    updateTally(heads, tails) {
+      headsEl.textContent = heads
+      tailsEl.textContent = tails
+    },
     updateCoin(bytes) {
       paintCoin(coinCanvas, bytes)
     },
   }
 }
 
-const BG_TOGGLE_KEY = 'bgPattern'
+export function primeToggle(id: string, checked: boolean): void {
+  const el = document.getElementById(id) as HTMLInputElement | null
+  if (el) el.checked = checked
+}
 
-export function setupBgToggle(
+export function setupToggle(
+  id: string,
+  initial: boolean,
   onChange: (enabled: boolean) => void,
-): boolean {
-  const el = document.getElementById('bg-toggle') as HTMLInputElement | null
-  let initial = true
-  try {
-    const stored = window.localStorage.getItem(BG_TOGGLE_KEY)
-    if (stored === 'off') initial = false
-  } catch {
-    /* localStorage unavailable */
-  }
-  if (el) {
-    el.checked = initial
-    el.addEventListener('change', () => {
-      const enabled = el.checked
-      try {
-        window.localStorage.setItem(BG_TOGGLE_KEY, enabled ? 'on' : 'off')
-      } catch {
-        /* ignore */
-      }
-      onChange(enabled)
-    })
-  }
-  return initial
+): void {
+  const el = document.getElementById(id) as HTMLInputElement | null
+  if (!el) return
+  el.checked = initial
+  el.addEventListener('change', () => onChange(el.checked))
 }

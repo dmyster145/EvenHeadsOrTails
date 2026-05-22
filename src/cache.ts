@@ -1,6 +1,7 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
+import { kvGet, kvSet } from './kv'
 
-const CACHE_VERSION = 'v2'
+const CACHE_VERSION = 'v5'
 const BASE64_CHUNK = 0x8000
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -28,9 +29,9 @@ export async function loadCached(
   label: string,
   size: number,
 ): Promise<Uint8Array | null> {
+  const stored = await kvGet(bridge, cacheKey(label, size))
+  if (!stored) return null
   try {
-    const stored = await bridge.getLocalStorage(cacheKey(label, size))
-    if (!stored) return null
     const bytes = base64ToBytes(stored)
     if (bytes.length < 8 || bytes[0] !== 0x89 || bytes[1] !== 0x50) {
       return null
@@ -41,15 +42,11 @@ export async function loadCached(
   }
 }
 
-export async function saveCached(
+export function saveCached(
   bridge: EvenAppBridge,
   label: string,
   size: number,
   bytes: Uint8Array,
-): Promise<void> {
-  try {
-    await bridge.setLocalStorage(cacheKey(label, size), bytesToBase64(bytes))
-  } catch {
-    // Cache write failures are non-fatal.
-  }
+): void {
+  kvSet(bridge, cacheKey(label, size), bytesToBase64(bytes))
 }

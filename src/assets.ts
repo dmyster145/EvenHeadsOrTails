@@ -1,4 +1,5 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
+import UPNG from 'upng-js'
 import { loadCached, saveCached } from './cache'
 
 export type CoinFrame =
@@ -22,6 +23,7 @@ export type CoinAssets = Record<CoinFrame, Uint8Array>
 
 const ALPHA_THRESHOLD = 180
 const CONTRAST_FACTOR = 1.6
+const PALETTE_SIZE = 16
 
 async function resizePng(bytes: Uint8Array, size: number): Promise<Uint8Array> {
   const blob = new Blob([bytes.slice().buffer as ArrayBuffer], {
@@ -62,15 +64,11 @@ async function resizePng(bytes: Uint8Array, size: number): Promise<Uint8Array> {
         px[i + 3] = 255
       }
     }
-    ctx.putImageData(imageData, 0, 0)
 
-    const outBlob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        b => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
-        'image/png',
-      )
-    })
-    return new Uint8Array(await outBlob.arrayBuffer())
+    const rgba = new ArrayBuffer(px.byteLength)
+    new Uint8ClampedArray(rgba).set(px)
+    const encoded = UPNG.encode([rgba], size, size, PALETTE_SIZE)
+    return new Uint8Array(encoded)
   } finally {
     URL.revokeObjectURL(url)
   }
@@ -100,7 +98,7 @@ export async function loadCoinAssets(
       }
       const resized = await resizePng(bytes, size)
       if (bridge) {
-        void saveCached(bridge, key, size, resized)
+        saveCached(bridge, key, size, resized)
       }
       return [key, resized] as const
     }),

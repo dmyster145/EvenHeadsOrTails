@@ -215,7 +215,9 @@
       }
 
       .mirror-frame pre,
-      .mirror-frame .mirror-status {
+      .mirror-frame .mirror-status,
+      .mirror-frame .mirror-heads,
+      .mirror-frame .mirror-tails {
         position: absolute;
         margin: 0;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -234,11 +236,29 @@
 
       .mirror-frame .mirror-status {
         left: 0;
-        top: 86.1cqb;
+        top: 86cqb;
         width: 100%;
         height: 13.9cqb;
         padding: 2cqb 0.69cqi;
         text-align: center;
+      }
+
+      .mirror-frame .mirror-heads {
+        left: 0;
+        top: 1cqb;
+        width: 30%;
+        height: 13.9cqb;
+        padding: 2cqb 0.69cqi;
+        text-align: left;
+      }
+
+      .mirror-frame .mirror-tails {
+        right: 0;
+        top: 1cqb;
+        width: 30%;
+        height: 13.9cqb;
+        padding: 2cqb 0.69cqi;
+        text-align: right;
       }
 
       .mirror-frame canvas {
@@ -252,7 +272,8 @@
 
       .mirror-controls {
         display: flex;
-        align-items: center;
+        flex-direction: column;
+        align-items: stretch;
         gap: 12px;
         margin-top: 12px;
         padding: 12px 16px;
@@ -315,6 +336,25 @@
       .toggle-switch input:checked + .toggle-slider::before {
         transform: translateX(18px);
       }
+
+      .mirror-reset {
+        align-self: flex-start;
+        margin-top: 4px;
+        padding: 8px 14px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: -0.13px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .mirror-reset:hover { background: var(--bc-4th); }
+      .mirror-reset:active { background: var(--accent); }
     </style>
   </head>
   <body>
@@ -334,6 +374,8 @@
           <pre id="mirror-drizzle"></pre>
           <canvas id="mirror-coin" width="144" height="144"></canvas>
           <div class="mirror-status" id="mirror-status"></div>
+          <div class="mirror-heads" id="mirror-heads"></div>
+          <div class="mirror-tails" id="mirror-tails"></div>
         </div>
         <div class="mirror-controls">
           <label>
@@ -343,6 +385,21 @@
               <span class="toggle-slider"></span>
             </span>
           </label>
+          <label>
+            <span>Tally counter</span>
+            <span class="toggle-switch">
+              <input type="checkbox" id="tally-toggle" />
+              <span class="toggle-slider"></span>
+            </span>
+          </label>
+          <label>
+            <span>Reset tally on startup</span>
+            <span class="toggle-switch">
+              <input type="checkbox" id="reset-startup-toggle" />
+              <span class="toggle-slider"></span>
+            </span>
+          </label>
+          <button type="button" id="tally-reset" class="mirror-reset">Reset tally</button>
         </div>
       </section>
 
@@ -352,6 +409,7 @@
           <li><a href="#getting-started">Getting Started</a></li>
           <li><a href="#controls">Controls</a></li>
           <li><a href="#display">Display</a></li>
+          <li><a href="#settings">Settings</a></li>
         </ul>
       </nav>
 
@@ -395,9 +453,10 @@
           <div class="section-content">
             <h3>Layout</h3>
             <ul>
-              <li><strong>Background:</strong> Unicode drizzle. The palette shifts during a flip.</li>
+              <li><strong>Tally:</strong> Top row. Heads left, tails right.</li>
               <li><strong>Coin:</strong> Centered on screen.</li>
               <li><strong>Status:</strong> Bottom line. Prompts and results.</li>
+              <li><strong>Background:</strong> Unicode drizzle. The palette shifts during a flip.</li>
             </ul>
 
             <h3>Drizzle</h3>
@@ -406,6 +465,21 @@
               <li><strong>Rising:</strong> <code>↑ ▲ △</code></li>
               <li><strong>Falling:</strong> <code>↓ ▼ ▽</code></li>
             </ul>
+          </div>
+        </details>
+      </section>
+
+      <section class="section" id="settings">
+        <details open>
+          <summary>Settings</summary>
+          <div class="section-content">
+            <p>Toggles live above, under the preview.</p>
+            <ul>
+              <li><strong>Background pattern:</strong> Turns the drizzle on or off.</li>
+              <li><strong>Tally counter:</strong> Shows or hides the heads/tails count. Off by default; the count keeps tracking while hidden.</li>
+              <li><strong>Reset tally on startup:</strong> Zeroes the count each time the app opens.</li>
+            </ul>
+            <p>Settings and the tally persist between sessions. Reset tally clears the count now.</p>
           </div>
         </details>
       </section>
