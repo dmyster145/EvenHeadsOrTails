@@ -125,7 +125,7 @@ export function createFlipController({
       result === 'heads' ? 'tailsHalfRotated' : 'headsHalfRotated'
     const frames: CoinFrame[] = []
     for (let r = 0; r < ROTATIONS; r++) {
-      frames.push(rotated, settle)
+      frames.push(rotated, settle, settle)
     }
     frames[frames.length - 1] = result
 
