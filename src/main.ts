@@ -24,6 +24,7 @@ import {
 import { loadCoinAssets } from './assets'
 import { createFlipController, IDLE_STATUS } from './flip'
 import { enqueue } from './bridgeQueue'
+import { patchImageCompressModeBug } from './sdkPatch'
 import { activateKeepAlive, isKeepAliveActive } from './keepAlive'
 import { spreadText } from './text'
 import { setupPreview, setupToggle, primeToggle } from './preview'
@@ -59,6 +60,10 @@ if (versionEl) versionEl.textContent = `v${__APP_VERSION__}`
 primeToggle('bg-toggle', peekBgEnabled())
 primeToggle('tally-toggle', peekTallyEnabled())
 primeToggle('reset-startup-toggle', peekResetOnStartup())
+
+// Must run before the first updateImageRawData, or the coin never renders on
+// SDK 0.0.12. See sdkPatch.ts.
+patchImageCompressModeBug()
 
 const bridge = await waitForEvenAppBridge()
 const assets = await loadCoinAssets(COIN_W, bridge)
@@ -231,10 +236,6 @@ document.getElementById('tally-reset')?.addEventListener('click', () => {
   updateTallyDisplay()
 })
 
-function showExitDialog(): void {
-  void bridge.shutDownPageContainer(1)
-}
-
 // Pause background animation while the app is hidden/locked. Otherwise the
 // drizzle ticker keeps queuing BLE writes that can't complete (timers throttle,
 // BLE stalls), piling up a backlog that drains slowly on resume and makes the
@@ -292,19 +293,24 @@ function handleBridgeEvent(event: EvenHubEvent): void {
     activateKeepAlive()
   }
 
+  // Double-tap shows the system exit dialog, from any state. Called inline (no
+  // wrapper) and ahead of result-dismissal so the gesture is never swallowed —
+  // otherwise the app appears to have no exit (a submission blocker). Cleanup runs
+  // in the SYSTEM_EXIT_EVENT / ABNORMAL_EXIT_EVENT handlers above, not here.
+  if (isDoubleClick) {
+    void bridge.shutDownPageContainer(1)
+    return
+  }
+
   if (flip.isResultShowing()) {
     if (isSwipeUp) {
       flip.trigger()
-    } else if (isSingleClick || isDoubleClick || isSwipeDown) {
+    } else if (isSingleClick || isSwipeDown) {
       void flip.dismissResult()
     }
     return
   }
 
-  if (isDoubleClick) {
-    showExitDialog()
-    return
-  }
   if (isSwipeUp) {
     flip.trigger()
     return

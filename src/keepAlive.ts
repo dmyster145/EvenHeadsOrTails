@@ -57,31 +57,3 @@ export function activateKeepAlive(): void {
 export function isKeepAliveActive(): boolean {
   return active
 }
-
-export function deactivateKeepAlive(): void {
-  if (oscillator) {
-    try {
-      oscillator.stop()
-    } catch {
-      // already stopped
-    }
-    oscillator = null
-  }
-  if (gainNode) {
-    try {
-      gainNode.disconnect()
-    } catch {
-      // already disconnected
-    }
-    gainNode = null
-  }
-  if (audioCtx) {
-    try {
-      void audioCtx.close()
-    } catch {
-      // already closed
-    }
-    audioCtx = null
-  }
-  active = false
-}

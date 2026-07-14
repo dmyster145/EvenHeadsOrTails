@@ -23,14 +23,11 @@ const STATUS_BLANK = ' '
 
 const ROTATIONS = 1
 const FRAME_HOLD_MS = 120
-const BLINK_MS = 500
 
 export interface FlipController {
   trigger(): void
   isResultShowing(): boolean
   dismissResult(): Promise<void>
-  pause(): void
-  resume(): void
 }
 
 interface Deps {
@@ -50,32 +47,6 @@ export function createFlipController({
 }: Deps): FlipController {
   let busy = false
   let resultShowing = false
-  let blinkTimer: ReturnType<typeof setInterval> | null = null
-  let blinkText: string | null = null
-
-  function clearBlink(): void {
-    if (blinkTimer !== null) {
-      clearInterval(blinkTimer)
-      blinkTimer = null
-    }
-  }
-
-  function startBlink(resultText: string): void {
-    clearBlink()
-    blinkText = resultText
-    let on = true
-    let inFlight = false
-    blinkTimer = setInterval(() => {
-      // Skip while a write is in flight so a slow BLE link can't accumulate a
-      // backlog of blink frames that drains slowly.
-      if (inFlight) return
-      on = !on
-      inFlight = true
-      void setStatus(on ? resultText : STATUS_BLANK).finally(() => {
-        inFlight = false
-      })
-    }, BLINK_MS)
-  }
 
   const sendImage = (frame: CoinFrame) => {
     preview?.updateCoin(assets[frame])
@@ -145,13 +116,21 @@ export function createFlipController({
         onResult(result)
         await setStatus(result === 'heads' ? STATUS_HEADS : STATUS_TAILS)
       }
+      const sentAt = Date.now()
       await sendImage(frames[i])
-      if (!isLast) await delay(FRAME_HOLD_MS)
+      if (!isLast) {
+        // Hold each frame ~FRAME_HOLD_MS, but the send itself already keeps this
+        // frame on-screen (the next frame doesn't render until its own send lands),
+        // so only pad the time the send didn't already consume. On a slow BLE link
+        // this drops the redundant wait — the tumble refreshes faster — while a fast
+        // link still paces to FRAME_HOLD_MS. Frame pixels are untouched.
+        const remaining = FRAME_HOLD_MS - (Date.now() - sentAt)
+        if (remaining > 0) await delay(remaining)
+      }
     }
 
     resultShowing = true
     busy = false
-    //startBlink(result === 'heads' ? STATUS_HEADS : STATUS_TAILS)
   }
 
   return {
@@ -159,7 +138,6 @@ export function createFlipController({
       if (busy) return
       if (resultShowing) {
         resultShowing = false
-        clearBlink()
       }
       void runFlip().catch(err => {
         console.error('Flip failed:', err)
@@ -172,17 +150,7 @@ export function createFlipController({
     async dismissResult() {
       if (!resultShowing) return
       resultShowing = false
-      blinkText = null
-      clearBlink()
       await setStatus(IDLE_STATUS)
-    },
-    // Stop the blink timer while the app is hidden/locked so it doesn't queue
-    // BLE writes that pile up and drain slowly on resume.
-    pause() {
-      clearBlink()
-    },
-    resume() {
-      if (resultShowing && blinkText !== null) startBlink(blinkText)
     },
   }
 }
