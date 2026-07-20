@@ -220,8 +220,17 @@
       .mirror-frame .mirror-tails {
         position: absolute;
         margin: 0;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 9.4cqb;
+        /* Sized to match the G2's own font metrics (@evenrealities/pretext).
+           The glasses font is PROPORTIONAL — a space advances 5px while letters
+           advance 12-16px. A monospace preview can't reproduce that: its space is
+           as wide as its letters, so the space-padded alignment that centerText/
+           spreadText compute against real glyph widths drifted badly and pushed
+           the menu's right-hand values off-screen. This stack at 19.25px (6.7cqb)
+           matches the G2 to ~7% RMS across sample strings and reproduces the 5px
+           space advance exactly, so space-based alignment lands where it does on
+           the device. Line height stays 9.4cqb = the glasses' 27px. */
+        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-size: 6.7cqb;
         line-height: 9.4cqb;
         color: #3CFA44;
         white-space: pre;

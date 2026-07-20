@@ -25,19 +25,48 @@ export const STATUS_H = LINE_H + 2 * PAD
 export const STATUS_Y = CANVAS_H - STATUS_H
 export const TALLY_INNER_W = CANVAS_W - 2 * PAD
 
+// Draw order follows ascending containerID (lower = drawn first = behind), so the
+// invisible input container takes the lowest ID and sits behind everything.
 export const IDS = {
-  bgDrizzle: 1,
-  statusBar: 2,
-  coinImage: 3,
-  tallyBar: 4,
+  inputCapture: 1,
+  bgDrizzle: 2,
+  statusBar: 3,
+  coinImage: 4,
+  tallyBar: 5,
 } as const
 
 export const NAMES = {
+  inputCapture: 'inputCapture',
   bgDrizzle: 'bgDrizzle',
   statusBar: 'statusBar',
   coinImage: 'coinImage',
   tallyBar: 'tallyBar',
 } as const
+
+/**
+ * Invisible full-screen gesture-capture container. Every visible container sets
+ * isEventCapture:0 so their gestures fall through to this one — otherwise the
+ * firmware re-anchors the container the gesture landed on, which made the
+ * settings menu bounce as you swiped through it. Full display size (not a small
+ * box) so the firmware never draws a scroll indicator on it, and its content is
+ * a single space written once at creation and never updated, so there is nothing
+ * inside for the firmware to scroll.
+ */
+export const makeInputCapture = (): TextContainerProperty =>
+  new TextContainerProperty({
+    xPosition: 0,
+    yPosition: 0,
+    width: CANVAS_W,
+    height: CANVAS_H,
+    borderWidth: 0,
+    borderColor: 0,
+    borderRadius: 0,
+    paddingLength: 0,
+    containerID: IDS.inputCapture,
+    containerName: NAMES.inputCapture,
+    content: ' ',
+    isEventCapture: 1,
+  })
 
 export const makeBgDrizzle = (content: string): TextContainerProperty =>
   new TextContainerProperty({
@@ -52,7 +81,10 @@ export const makeBgDrizzle = (content: string): TextContainerProperty =>
     containerID: IDS.bgDrizzle,
     containerName: NAMES.bgDrizzle,
     content,
-    isEventCapture: 1,
+    // 0 — gestures are captured by the inputCapture container instead, so this
+    // container's content (drizzle frames, settings menu rows) is never scrolled
+    // or re-anchored by the firmware.
+    isEventCapture: 0,
   })
 
 export const makeStatusBar = (content: string): TextContainerProperty =>

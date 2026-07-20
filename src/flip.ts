@@ -27,14 +27,24 @@ const FRAME_HOLD_MS = 120
 export interface FlipController {
   trigger(): void
   isResultShowing(): boolean
+  /** True while the tumble animation is mid-flight and owns the display. */
+  isBusy(): boolean
   dismissResult(): Promise<void>
+  /** Drop the result state without touching the display — for callers that are
+   *  about to repaint the canvas themselves (the settings menu). */
+  clearResult(): void
+  /** Last coin frame written, so a caller can restore it after covering it. */
+  currentFrame(): CoinFrame
 }
 
 interface Deps {
   bridge: EvenAppBridge
   assets: CoinAssets
   setPhase(phase: DrizzlePhase): void
+  /** Update counts and on-screen state. Runs on the last frame, in the critical path. */
   onResult(result: 'heads' | 'tails'): void
+  /** Persist state. Runs after the animation, so its bridge write can't delay a coin frame. */
+  onSettled?(): void
   preview?: Preview | null
 }
 
@@ -43,12 +53,15 @@ export function createFlipController({
   assets,
   setPhase,
   onResult,
+  onSettled,
   preview,
 }: Deps): FlipController {
   let busy = false
   let resultShowing = false
+  let lastFrame: CoinFrame = 'heads'
 
   const sendImage = (frame: CoinFrame) => {
+    lastFrame = frame
     preview?.updateCoin(assets[frame])
     return enqueue(() =>
       bridge.updateImageRawData(
@@ -131,6 +144,10 @@ export function createFlipController({
 
     resultShowing = true
     busy = false
+    // Persistence last: its bridge write is serialized with the coin frames, so
+    // running it inline on the final frame delayed the result reveal by a full
+    // round trip. localStorage (the authoritative store) is already written.
+    onSettled?.()
   }
 
   return {
@@ -146,6 +163,15 @@ export function createFlipController({
     },
     isResultShowing() {
       return resultShowing
+    },
+    isBusy() {
+      return busy
+    },
+    clearResult() {
+      resultShowing = false
+    },
+    currentFrame() {
+      return lastFrame
     },
     async dismissResult() {
       if (!resultShowing) return

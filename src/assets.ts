@@ -74,6 +74,14 @@ async function resizePng(bytes: Uint8Array, size: number): Promise<Uint8Array> {
   }
 }
 
+// Fully transparent frame, used to clear the coin container while the settings
+// menu is up — the image layer draws over the full-canvas text container, so the
+// coin has to be blanked or it sits on top of the menu rows.
+export function makeBlankImage(size: number): Uint8Array {
+  const rgba = new ArrayBuffer(size * size * 4)
+  return new Uint8Array(UPNG.encode([rgba], size, size, PALETTE_SIZE))
+}
+
 export async function loadCoinAssets(
   size: number,
   bridge?: EvenAppBridge,

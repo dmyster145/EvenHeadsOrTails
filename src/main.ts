@@ -12,6 +12,7 @@ import {
   NAMES,
   TALLY_INNER_W,
   makeBgDrizzle,
+  makeInputCapture,
   makeStatusBar,
   makeTallyBar,
   makeCoinImage,
@@ -21,8 +22,9 @@ import {
   makeInitialDrizzleFrame,
   type DrizzlePhase,
 } from './drizzle'
-import { loadCoinAssets } from './assets'
+import { loadCoinAssets, makeBlankImage } from './assets'
 import { createFlipController, IDLE_STATUS } from './flip'
+import { createMenuController } from './menu'
 import { enqueue } from './bridgeQueue'
 import { patchImageCompressModeBug } from './sdkPatch'
 import { activateKeepAlive, isKeepAliveActive } from './keepAlive'
@@ -75,7 +77,7 @@ let drizzleSeed = Math.floor(Math.random() * 0xffffffff)
 let bgEnabled = await loadBgEnabled(bridge)
 let tallyEnabled = await loadTallyEnabled(bridge)
 
-const resetOnStartup = await loadResetOnStartup(bridge)
+let resetOnStartup = await loadResetOnStartup(bridge)
 if (resetOnStartup) {
   tally.heads = 0
   tally.tails = 0
@@ -84,8 +86,9 @@ if (resetOnStartup) {
 
 const createResult = await bridge.createStartUpPageContainer(
   new CreateStartUpPageContainer({
-    containerTotalNum: 4,
+    containerTotalNum: 5,
     textObject: [
+      makeInputCapture(),
       makeBgDrizzle(makeInitialDrizzleFrame()),
       makeStatusBar(IDLE_STATUS),
       makeTallyBar(tallyEnabled ? tallyLine() : TALLY_BLANK),
@@ -157,6 +160,10 @@ function updateTallyDisplay(): void {
     tallyEnabled ? formatHeads(tally) : '',
     tallyEnabled ? formatTails(tally) : '',
   )
+  // The tally bar overlays the top of the menu, so hold the glasses write while
+  // the menu is up — toggling the tally from there would otherwise stamp the
+  // counts across the title row. onClose repaints it with the final state.
+  if (menu.isOpen()) return
   void enqueue(() =>
     bridge.textContainerUpgrade(
       new TextContainerUpgrade({
@@ -173,6 +180,10 @@ function updateTallyDisplay(): void {
 const flip = createFlipController({
   bridge,
   assets,
+  // One rain repaint immediately before every coin frame. The repeat write
+  // within a phase is not redundant: it reseeds the glyph positions, so the rain
+  // animates in lockstep with the tumble. Deduplicating it froze the rain
+  // through the ascent and threw the timing off.
   setPhase(phase) {
     currentPhase = phase
     if (bgEnabled) sendDrizzleFrame()
@@ -180,8 +191,10 @@ const flip = createFlipController({
   onResult(result) {
     if (result === 'heads') tally.heads += 1
     else tally.tails += 1
-    saveTally(bridge, tally)
     updateTallyDisplay()
+  },
+  onSettled() {
+    saveTally(bridge, tally)
   },
   preview,
 })
@@ -213,27 +226,126 @@ function applyBgEnabled(enabled: boolean): void {
   }
 }
 
-setupToggle('bg-toggle', bgEnabled, enabled => {
+// Each setting has one setter, shared by the phone toggles and the on-glasses
+// settings menu, so a change from either surface persists and is reflected in
+// the other. `fromPhone` skips writing the checkbox that just fired the change.
+function setBgEnabled(enabled: boolean, fromPhone = false): void {
   saveBgEnabled(bridge, enabled)
   applyBgEnabled(enabled)
-})
-applyBgEnabled(bgEnabled)
+  if (!fromPhone) primeToggle('bg-toggle', enabled)
+}
 
-setupToggle('tally-toggle', tallyEnabled, enabled => {
+function setTallyEnabled(enabled: boolean, fromPhone = false): void {
   tallyEnabled = enabled
   saveTallyEnabled(bridge, enabled)
   updateTallyDisplay()
-})
+  if (!fromPhone) primeToggle('tally-toggle', enabled)
+}
 
-setupToggle('reset-startup-toggle', resetOnStartup, enabled => {
+function setResetOnStartup(enabled: boolean, fromPhone = false): void {
+  resetOnStartup = enabled
   saveResetOnStartup(bridge, enabled)
-})
+  if (!fromPhone) primeToggle('reset-startup-toggle', enabled)
+}
 
-document.getElementById('tally-reset')?.addEventListener('click', () => {
+setupToggle('bg-toggle', bgEnabled, enabled => setBgEnabled(enabled, true))
+applyBgEnabled(bgEnabled)
+
+setupToggle('tally-toggle', tallyEnabled, enabled =>
+  setTallyEnabled(enabled, true),
+)
+
+setupToggle('reset-startup-toggle', resetOnStartup, enabled =>
+  setResetOnStartup(enabled, true),
+)
+
+function resetTally(): void {
   tally.heads = 0
   tally.tails = 0
   saveTally(bridge, tally)
   updateTallyDisplay()
+}
+
+document.getElementById('tally-reset')?.addEventListener('click', resetTally)
+
+const menu = createMenuController({
+  bridge,
+  preview,
+  blankImage: makeBlankImage(COIN_W),
+  items: [
+    {
+      label: 'Background',
+      getValue: () => bgEnabled,
+      onSelect: () => setBgEnabled(!bgEnabled),
+    },
+    {
+      label: 'Tally counter',
+      getValue: () => tallyEnabled,
+      onSelect: () => setTallyEnabled(!tallyEnabled),
+    },
+    {
+      label: 'Reset tally at start',
+      getValue: () => resetOnStartup,
+      onSelect: () => setResetOnStartup(!resetOnStartup),
+    },
+    {
+      label: 'Reset current tally',
+      // The tally bar is hidden behind the menu, so echo the counts on the row
+      // itself — otherwise a reset gives no visible confirmation.
+      getValue: () => `${tally.heads} / ${tally.tails}`,
+      onSelect: resetTally,
+    },
+    // exitMode 1 — hand off to the ER exit prompt. exitMode 0 claims to quit
+    // immediately but leaves the app not fully closed, so the prompt is the
+    // reliable teardown path.
+    { label: 'Exit', onSelect: () => void bridge.shutDownPageContainer(1) },
+  ],
+  onOpen() {
+    // The menu owns the whole canvas: stop the drizzle ticker so it can't
+    // overwrite the rows, and drop any result state we're painting over.
+    stopDrizzleTicker()
+    flip.clearResult()
+    void enqueue(() =>
+      bridge.textContainerUpgrade(
+        new TextContainerUpgrade({
+          containerID: IDS.tallyBar,
+          containerName: NAMES.tallyBar,
+          content: TALLY_BLANK,
+          contentOffset: 0,
+          contentLength: 0,
+        }),
+      ),
+    )
+    preview?.updateTally('', '')
+  },
+  onClose() {
+    preview?.updateCoin(assets[flip.currentFrame()])
+    void enqueue(() =>
+      bridge.updateImageRawData(
+        new ImageRawDataUpdate({
+          containerID: IDS.coinImage,
+          containerName: NAMES.coinImage,
+          imageData: assets[flip.currentFrame()],
+        }),
+      ),
+    )
+    preview?.updateStatus(IDLE_STATUS)
+    void enqueue(() =>
+      bridge.textContainerUpgrade(
+        new TextContainerUpgrade({
+          containerID: IDS.statusBar,
+          containerName: NAMES.statusBar,
+          content: IDLE_STATUS,
+          contentOffset: 0,
+          contentLength: 0,
+        }),
+      ),
+    )
+    updateTallyDisplay()
+    // applyBgEnabled repaints the drizzle (or blanks it) and restarts the ticker,
+    // clearing the menu rows out of the full-canvas container either way.
+    applyBgEnabled(bgEnabled)
+  },
 })
 
 // Pause background animation while the app is hidden/locked. Otherwise the
@@ -245,6 +357,9 @@ function pauseActivity(): void {
 }
 
 function resumeActivity(): void {
+  // Not while the settings menu is up — the ticker writes to the same
+  // full-canvas container the menu rows live in.
+  if (menu.isOpen()) return
   startDrizzleTicker()
 }
 
@@ -293,12 +408,21 @@ function handleBridgeEvent(event: EvenHubEvent): void {
     activateKeepAlive()
   }
 
-  // Double-tap shows the system exit dialog, from any state. Called inline (no
-  // wrapper) and ahead of result-dismissal so the gesture is never swallowed —
-  // otherwise the app appears to have no exit (a submission blocker). Cleanup runs
-  // in the SYSTEM_EXIT_EVENT / ABNORMAL_EXIT_EVENT handlers above, not here.
+  // Double-tap opens the settings menu from the coin view and closes it again
+  // from inside — it's the back gesture. Exiting the app is the menu's Exit row.
+  // Handled inline and ahead of everything else so the gesture is never
+  // swallowed. Cleanup runs in the SYSTEM_EXIT_EVENT / ABNORMAL_EXIT_EVENT
+  // handlers above, not here.
   if (isDoubleClick) {
-    void bridge.shutDownPageContainer(1)
+    if (menu.isOpen()) menu.close()
+    else if (!flip.isBusy()) menu.open()
+    return
+  }
+
+  if (menu.isOpen()) {
+    if (isSwipeUp) menu.moveUp()
+    else if (isSwipeDown) menu.moveDown()
+    else if (isSingleClick) menu.select()
     return
   }
 
