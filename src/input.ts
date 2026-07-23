@@ -33,9 +33,8 @@ function classifyGesture(event: EvenHubEvent): Gesture {
 
 // The SDK fires DOUBLE_CLICK_EVENT twice (~110ms apart) per physical
 // double-tap. Without a debounce the pair cancels itself: the first event
-// opens the settings menu and the second immediately closes it (and from the
-// home screen, the exit prompt fires twice). Debounce is per event TYPE —
-// single taps and swipes must pass untouched.
+// opens the settings menu and the second immediately closes it. Debounce is
+// per event TYPE — single taps and swipes must pass untouched.
 const DOUBLE_CLICK_DEBOUNCE_MS = 250
 
 /** The subset of the flip/roll controllers the router drives. */
@@ -51,8 +50,6 @@ interface Deps {
   menu: MenuController
   /** The active mode's controller (flip or roll). */
   getSurface(): GameSurface
-  /** Hand off to the ER exit prompt. */
-  exitApp(): void
   onForegroundEnter(): void
   onForegroundExit(): void
   /** Session teardown on SYSTEM_EXIT / ABNORMAL_EXIT (stop timers, drop the
@@ -71,7 +68,6 @@ export function createInputRouter({
   home,
   menu,
   getSurface,
-  exitApp,
   onForegroundEnter,
   onForegroundExit,
   onAppExit,
@@ -118,16 +114,17 @@ export function createInputRouter({
 
     const surface = getSurface()
 
-    // Double-tap is the back gesture: from the home screen it hands off to the
-    // ER exit prompt (the required exit path), from a mode view it opens the
-    // settings menu, and from the menu it closes it. Handled inline and ahead
-    // of everything else so the gesture is never swallowed. Cleanup runs in
-    // the SYSTEM_EXIT / ABNORMAL_EXIT handlers above, not here.
+    // Double-tap is the back gesture: from a mode view it opens the settings
+    // menu, and from the menu it closes it. On the home screen it is consumed
+    // with no action — exiting is deliberate there, via the Exit row (which
+    // hands off to the ER exit prompt). Handled inline and ahead of everything
+    // else so the gesture is never swallowed. Cleanup runs in the SYSTEM_EXIT
+    // / ABNORMAL_EXIT handlers above, not here.
     if (isDoubleClick) {
       const now = Date.now()
       if (now - lastDoubleClickAt < DOUBLE_CLICK_DEBOUNCE_MS) return
       lastDoubleClickAt = now
-      if (home.isOpen()) exitApp()
+      if (home.isOpen()) return
       else if (menu.isOpen()) menu.close()
       else if (!surface.isBusy()) menu.open()
       // Mid-animation: honor the intent once the animation settles.

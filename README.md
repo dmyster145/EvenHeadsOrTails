@@ -103,7 +103,7 @@ EvenHeadsOrTails/
 
 - **Swipe up:** Flip the coin, or roll the die in dice mode. Swipe up on a result to go again.
 - **Tap / swipe down:** Dismiss the result and return to the idle prompt.
-- **Double-tap:** Open the settings menu (home, background, tally, exit); double-tap again to close it. On the home screen, double-tap opens the exit prompt.
+- **Double-tap:** Open the settings menu (home, background, tally, exit); double-tap again to close it. To quit, select Exit on the home screen or in the settings menu.
 
 ## Scripts
 

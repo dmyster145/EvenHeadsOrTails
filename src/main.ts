@@ -656,7 +656,6 @@ router = createInputRouter({
   home,
   menu,
   getSurface: () => (diceMode ? roll : flip),
-  exitApp: () => void bridge.shutDownPageContainer(1),
   onForegroundEnter: resumeActivity,
   onForegroundExit: pauseActivity,
   onAppExit() {
