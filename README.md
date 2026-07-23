@@ -22,11 +22,11 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 | Dice (rolling) | Dice |
 |----------------|------|
-| ![Die tumbling over the debris field](assets/dice_rolling_1.png) | ![Rolled six result](assets/dice.png) |
+| ![Die tumbling over the debris field, two face up](assets/dice_rolling_1.png) | ![Rolled six result](assets/dice.png) |
 
 | Dice (rolling) | Dice (rolling) |
 |----------------|----------------|
-| ![Die tumbling, five face up](assets/dice_rolling_2.png) | ![Die tumbling, four face up](assets/dice_rolling_3.png) |
+| ![Die tumbling, one face up](assets/dice_rolling_2.png) | ![Die tumbling, five face up](assets/dice_rolling_3.png) |
 
 | Phone UI |
 |----------|

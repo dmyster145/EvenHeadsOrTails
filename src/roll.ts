@@ -19,11 +19,11 @@ export const ROLL_IDLE_STATUS = centerText(
 // die (longer frame holds, lower field velocity). The iso tumble frames all
 // run at streak velocity (≥2), so the field shows motion lines the whole time
 // the die is airborne. The settle frame — the result face tilted 45° — drops
-// to velocity 1: the streaks resolve into shapes the moment it appears, and a
-// few extra field pulses keep the shapes drifting through its hold instead of
-// freezing a frame early. The landing frame (face flat) goes straight to the
-// ambient 'landed' dots — same shape as the coin flip, whose drizzle animates
-// only in lockstep with animation frames and ends on the landing frame.
+// to velocity 1: the streaks resolve into shapes the moment it appears, and
+// the extra field pulses radiate them outward from the die — an impact burst —
+// through its hold. The field then holds those shapes until the landing
+// frame (face flat) is on screen; only after that final image lands does the
+// ambient 'landed' dot drizzle take over.
 const HOLDS = [110, 150, 210]
 /** Field velocity (rows per update) per tumble frame, parallel to HOLDS. All
  *  at or above the streak threshold so motion lines persist until the settle. */
@@ -176,11 +176,14 @@ export function createRollController({
       setPhase('motion', SETTLE_VELOCITY)
     }
 
-    // Landing frame: ambient drizzle returns with the result, like the coin.
-    setPhase('landed')
+    // Landing frame: the field stays frozen on its settle shapes while the
+    // status and face writes are on the wire, and only once the face is on
+    // screen does the ambient drizzle return — switching phases any earlier
+    // stamps dots over the field while the settle frame is still showing.
     onResult(value)
     await setStatus(centerText(`↑  ROLLED ${value}  ↑`, STATUS_INNER_W))
     await sendImage(await facePromise)
+    setPhase('landed')
   }
 
   const lifecycle = createSurfaceLifecycle({

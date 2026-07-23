@@ -9,7 +9,7 @@ export const DIE_FACES = 6
 
 // Bump when the art in public/dice/ or the pose table changes, so stale
 // processed copies in the kv cache are abandoned.
-const DICE_ASSET_VERSION = 'a7'
+const DICE_ASSET_VERSION = 'a8'
 
 // All dice art is authored on a 288×288 canvas; results are transformed at
 // that size, then run through the same downscale/quantize pass as the coin.
