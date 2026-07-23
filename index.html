@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-    <title>Heads or Tails — Coin for Even Realities G2</title>
+    <title>Heads or Tails</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -243,6 +243,8 @@
         padding: 1.4cqb 0.69cqi;
       }
 
+      /* Matches the glasses statusBar container: full width, one line pinned
+         to the bottom (y=253, h=35 on 576x288). */
       .mirror-frame .mirror-status {
         left: 0;
         top: 86cqb;
@@ -252,6 +254,9 @@
         text-align: center;
       }
 
+      /* .mirror-heads and .mirror-tails together match the glasses tallyBar
+         container (full width at y=0, h=36) — split into left/right elements
+         because the preview receives the two counts separately. */
       .mirror-frame .mirror-heads {
         left: 0;
         top: 1cqb;
@@ -277,6 +282,24 @@
         width: 25cqi;
         height: 50cqb;
         image-rendering: pixelated;
+      }
+
+      /* Matches the glasses banner container: 288x57 at (144,6) on 576x288. */
+      .mirror-frame #mirror-banner {
+        left: 25cqi;
+        top: 2.1cqb;
+        width: 50cqi;
+        height: 19.8cqb;
+      }
+
+      /* Matches the glasses home-menu container: full width at y=104, h=100. */
+      .mirror-frame #mirror-home {
+        inset: auto;
+        left: 0;
+        top: 36.1cqb;
+        width: 100%;
+        height: 34.7cqb;
+        padding: 1.4cqb 0.69cqi;
       }
 
       .mirror-controls {
@@ -364,6 +387,41 @@
 
       .mirror-reset:hover { background: var(--bc-4th); }
       .mirror-reset:active { background: var(--accent); }
+
+      .mode-select {
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: -0.13px;
+        cursor: pointer;
+      }
+
+      .dev-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 8px;
+        margin-top: 8px;
+      }
+      .dev-grid button {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: -0.13px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .dev-grid button:hover { background: var(--bc-4th); }
+      .dev-grid button:active { background: var(--accent); }
     </style>
   </head>
   <body>
@@ -374,7 +432,7 @@
         <div class="logo">
           <span class="logo-text">HEADS OR TAILS</span>
         </div>
-        <p class="subtitle">Coin flipper for Even Realities G2</p>
+        <p class="subtitle">Coin flipper and dice roller for Even Realities G2</p>
       </header>
 
       <section class="mirror">
@@ -382,34 +440,58 @@
         <div class="mirror-frame" id="mirror-frame">
           <pre id="mirror-drizzle"></pre>
           <canvas id="mirror-coin" width="144" height="144"></canvas>
+          <canvas id="mirror-banner" width="288" height="57"></canvas>
+          <pre id="mirror-home"></pre>
           <div class="mirror-status" id="mirror-status"></div>
           <div class="mirror-heads" id="mirror-heads"></div>
           <div class="mirror-tails" id="mirror-tails"></div>
         </div>
         <div class="mirror-controls">
+          <!-- Controls start disabled; the app enables each once its persisted
+               state has loaded and the change handler is wired. -->
           <label>
             <span>Background pattern</span>
             <span class="toggle-switch">
-              <input type="checkbox" id="bg-toggle" checked />
+              <input type="checkbox" id="bg-toggle" checked disabled />
               <span class="toggle-slider"></span>
             </span>
           </label>
           <label>
             <span>Tally counter</span>
             <span class="toggle-switch">
-              <input type="checkbox" id="tally-toggle" />
+              <input type="checkbox" id="tally-toggle" disabled />
               <span class="toggle-slider"></span>
             </span>
           </label>
           <label>
             <span>Reset tally on startup</span>
             <span class="toggle-switch">
-              <input type="checkbox" id="reset-startup-toggle" />
+              <input type="checkbox" id="reset-startup-toggle" disabled />
               <span class="toggle-slider"></span>
             </span>
           </label>
-          <button type="button" id="tally-reset" class="mirror-reset">Reset tally</button>
+          <label>
+            <span>Mode</span>
+            <select id="mode-select" class="mode-select" disabled>
+              <option value="coin">Coin Flip</option>
+              <option value="dice">Dice Roll</option>
+            </select>
+          </label>
+          <button type="button" id="tally-reset" class="mirror-reset" disabled>Reset tally</button>
         </div>
+      </section>
+
+      <!-- Dev tooling parked for future tuning: remove `hidden` to re-enable. -->
+      <section class="section" id="dev-roll-styles" hidden>
+        <details open>
+          <summary>Dev: Roll Animation</summary>
+          <div class="section-content">
+            <p>Replay the dice roll animation: the debris field streams downward past the die, corner shards spin clockwise, streaks resolve into shapes as it decelerates, and everything freezes when the die stops.</p>
+            <div class="dev-grid">
+              <button type="button" id="dev-roll-play">Play roll animation</button>
+            </div>
+          </div>
+        </details>
       </section>
 
       <nav class="toc">
@@ -426,7 +508,8 @@
         <details open>
           <summary>Getting Started</summary>
           <div class="section-content">
-            <p>Swipe up to flip. Results are 50/50.</p>
+            <p>The glasses open on a home screen. Swipe to highlight <strong>Coin Flip</strong> or <strong>Dice Roll</strong>, then tap to select.</p>
+            <p>Flips are a true 50/50 and rolls are a fair six-sided die.</p>
           </div>
         </details>
       </section>
@@ -440,12 +523,17 @@
             <div class="gesture-grid">
               <div class="gesture-card">
                 <strong>Swipe Up</strong>
-                Flips the coin.
+                Flips the coin, or rolls the die in dice mode.
+              </div>
+
+              <div class="gesture-card">
+                <strong>Tap or Swipe Down</strong>
+                Dismisses the result.
               </div>
 
               <div class="gesture-card">
                 <strong>Double Tap</strong>
-                Opens the exit prompt.
+                Opens the settings menu (Home and Exit live there). On the home screen, opens the exit prompt.
               </div>
             </div>
 
@@ -462,10 +550,10 @@
           <div class="section-content">
             <h3>Layout</h3>
             <ul>
-              <li><strong>Tally:</strong> Top row. Heads left, tails right.</li>
-              <li><strong>Coin:</strong> Centered on screen.</li>
+              <li><strong>Tally:</strong> Top row. Heads left, tails right. In dice mode: roll count and last roll.</li>
+              <li><strong>Coin / Die:</strong> Centered on screen.</li>
               <li><strong>Status:</strong> Bottom line. Prompts and results.</li>
-              <li><strong>Background:</strong> Unicode drizzle. The palette shifts during a flip.</li>
+              <li><strong>Background:</strong> Unicode drizzle. The pattern shifts during a flip or roll.</li>
             </ul>
 
             <h3>Drizzle</h3>
@@ -473,6 +561,7 @@
               <li><strong>Idle:</strong> <code>· °</code></li>
               <li><strong>Rising:</strong> <code>↑ ▲ △</code></li>
               <li><strong>Falling:</strong> <code>↓ ▼ ▽</code></li>
+              <li><strong>Rolling:</strong> <code>▕ ◤ ◆ ■</code></li>
             </ul>
           </div>
         </details>
@@ -482,13 +571,15 @@
         <details open>
           <summary>Settings</summary>
           <div class="section-content">
-            <p>Toggles live above, under the preview.</p>
+            <p>Settings live under the preview. Most are also in the on-glasses menu (double tap).</p>
             <ul>
               <li><strong>Background pattern:</strong> Turns the drizzle on or off.</li>
-              <li><strong>Tally counter:</strong> Shows or hides the heads/tails count. Off by default; the count keeps tracking while hidden.</li>
-              <li><strong>Reset tally on startup:</strong> Zeroes the count each time the app opens.</li>
+              <li><strong>Tally counter:</strong> Shows or hides the counts. Counting continues while hidden.</li>
+              <li><strong>Reset tally on startup:</strong> Zeroes the counts each time the app opens.</li>
+              <li><strong>Mode:</strong> Coin Flip or Dice Roll. On the glasses, pick from the home screen.</li>
+              <li><strong>Reset tally:</strong> Clears the counts now.</li>
             </ul>
-            <p>Settings and the tally persist between sessions. Reset tally clears the count now.</p>
+            <p>Settings and the tally persist between sessions.</p>
           </div>
         </details>
       </section>

@@ -1,17 +1,15 @@
-import {
-  EvenAppBridge,
-  ImageRawDataUpdate,
-  TextContainerUpgrade,
-} from '@evenrealities/even_hub_sdk'
-import { CANVAS_W, IDS, NAMES } from './layout'
+import { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import type { CoinAssets, CoinFrame } from './assets'
 import type { DrizzlePhase } from './drizzle'
-import { enqueue } from './bridgeQueue'
+import { sendText, sendImage } from './send'
+import {
+  createSurfaceLifecycle,
+  delay,
+  STATUS_BLANK,
+  STATUS_INNER_W,
+} from './surface'
 import { centerText } from './text'
 import type { Preview } from './preview'
-
-const STATUS_PAD = 4
-const STATUS_INNER_W = CANVAS_W - 2 * STATUS_PAD
 
 export const IDLE_STATUS = centerText(
   '↑  Swipe up to flip  ↑',
@@ -19,7 +17,6 @@ export const IDLE_STATUS = centerText(
 )
 const STATUS_HEADS = centerText('↑  HEADS  ↑', STATUS_INNER_W)
 const STATUS_TAILS = centerText('↑  TAILS  ↑', STATUS_INNER_W)
-const STATUS_BLANK = ' '
 
 const ROTATIONS = 1
 const FRAME_HOLD_MS = 120
@@ -39,7 +36,8 @@ export interface FlipController {
 
 interface Deps {
   bridge: EvenAppBridge
-  assets: CoinAssets
+  /** Coin assets, resolved per flip so startup never blocks on the coin art. */
+  getAssets(): Promise<CoinAssets>
   setPhase(phase: DrizzlePhase): void
   /** Update counts and on-screen state. Runs on the last frame, in the critical path. */
   onResult(result: 'heads' | 'tails'): void
@@ -50,56 +48,35 @@ interface Deps {
 
 export function createFlipController({
   bridge,
-  assets,
+  getAssets,
   setPhase,
   onResult,
   onSettled,
   preview,
 }: Deps): FlipController {
-  let busy = false
-  let resultShowing = false
   let lastFrame: CoinFrame = 'heads'
 
-  const sendImage = (frame: CoinFrame) => {
+  const sendCoinFrame = (assets: CoinAssets, frame: CoinFrame) => {
     lastFrame = frame
     preview?.updateCoin(assets[frame])
-    return enqueue(() =>
-      bridge.updateImageRawData(
-        new ImageRawDataUpdate({
-          containerID: IDS.coinImage,
-          containerName: NAMES.coinImage,
-          imageData: assets[frame],
-        }),
-      ),
-    )
+    return sendImage(bridge, 'coinImage', assets[frame])
   }
 
   const setStatus = (content: string) => {
     preview?.updateStatus(content)
-    return enqueue(() =>
-      bridge.textContainerUpgrade(
-        new TextContainerUpgrade({
-          containerID: IDS.statusBar,
-          containerName: NAMES.statusBar,
-          content,
-          contentOffset: 0,
-          contentLength: 0,
-        }),
-      ),
-    )
+    return sendText(bridge, 'statusBar', content)
   }
 
-  const delay = (ms: number) =>
-    new Promise<void>(resolve => setTimeout(resolve, ms))
-
   async function runFlip(): Promise<void> {
-    busy = true
     // Swipe feedback: rain up-arrows and clear the status. setPhase runs
     // synchronously with the swipe; the blank follows so the coin tumbles
     // against an empty status bar until the result lands.
     setPhase('up')
+    const assetsPromise = getAssets()
     await setStatus(STATUS_BLANK)
+    const assets = await assetsPromise
 
+    // 256 possible byte values split exactly in half at 128 — no bias.
     const result: 'heads' | 'tails' =
       crypto.getRandomValues(new Uint8Array(1))[0] < 128 ? 'heads' : 'tails'
 
@@ -130,7 +107,7 @@ export function createFlipController({
         await setStatus(result === 'heads' ? STATUS_HEADS : STATUS_TAILS)
       }
       const sentAt = Date.now()
-      await sendImage(frames[i])
+      await sendCoinFrame(assets, frames[i])
       if (!isLast) {
         // Hold each frame ~FRAME_HOLD_MS, but the send itself already keeps this
         // frame on-screen (the next frame doesn't render until its own send lands),
@@ -141,42 +118,24 @@ export function createFlipController({
         if (remaining > 0) await delay(remaining)
       }
     }
-
-    resultShowing = true
-    busy = false
-    // Persistence last: its bridge write is serialized with the coin frames, so
-    // running it inline on the final frame delayed the result reveal by a full
-    // round trip. localStorage (the authoritative store) is already written.
-    onSettled?.()
   }
 
+  const lifecycle = createSurfaceLifecycle({
+    label: 'Flip',
+    idleStatus: IDLE_STATUS,
+    setStatus,
+    setPhase,
+    onSettled,
+  })
+
   return {
-    trigger() {
-      if (busy) return
-      if (resultShowing) {
-        resultShowing = false
-      }
-      void runFlip().catch(err => {
-        console.error('Flip failed:', err)
-        busy = false
-      })
-    },
-    isResultShowing() {
-      return resultShowing
-    },
-    isBusy() {
-      return busy
-    },
-    clearResult() {
-      resultShowing = false
-    },
+    trigger: () => lifecycle.trigger(runFlip),
+    isResultShowing: lifecycle.isResultShowing,
+    isBusy: lifecycle.isBusy,
+    clearResult: lifecycle.clearResult,
+    dismissResult: lifecycle.dismissResult,
     currentFrame() {
       return lastFrame
-    },
-    async dismissResult() {
-      if (!resultShowing) return
-      resultShowing = false
-      await setStatus(IDLE_STATUS)
     },
   }
 }

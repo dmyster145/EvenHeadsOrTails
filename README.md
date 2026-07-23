@@ -2,17 +2,31 @@
 
 Coin flip for **Even Realities G2** smart glasses: swipe up to flip a coin on the 576×288 HUD, with an animated tumble, drizzle background, and an optional Heads/Tails tally. Use the touchpad or ring controller (R1).
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE).
+Prefer dice? Pick **Dice Roll** on the home screen and swipe up to roll a pewter d6.
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ## Screenshots
 
-| Heads | Heads — flipping |
+| Home screen |
+|-------------|
+| ![Home screen with mode picker](assets/home.png) |
+
+| Heads | Heads (flipping) |
 |-------|------------------|
 | ![Heads result](assets/heads.png) | ![Coin flipping toward heads](assets/heads_flipping.png) |
 
-| Tails — flipping | Tails |
+| Tails (flipping) | Tails |
 |------------------|-------|
 | ![Coin flipping toward tails](assets/tails_flipping.png) | ![Tails result](assets/tails.png) |
+
+| Dice (rolling) | Dice |
+|----------------|------|
+| ![Die tumbling over the debris field](assets/dice_rolling_1.png) | ![Rolled six result](assets/dice.png) |
+
+| Dice (rolling) | Dice (rolling) |
+|----------------|----------------|
+| ![Die tumbling, five face up](assets/dice_rolling_2.png) | ![Die tumbling, four face up](assets/dice_rolling_3.png) |
 
 | Phone UI |
 |----------|
@@ -20,14 +34,14 @@ This project is licensed under the MIT License — see [LICENSE](LICENSE).
 
 ## Quick links
 
-- **In-app help:** Open the app on your phone to see the live HUD preview and settings (background pattern, tally counter, reset tally). Same page as [index.html](index.html) in this repo.
+- **In-app help:** Open the app on your phone for a live HUD preview and settings (mode, background, tally). Same page as [index.html](index.html) in this repo.
 
 ## Tech stack
 
 - **Runtime:** TypeScript, Vite
-- **Glasses:** [Even Hub SDK](https://www.npmjs.com/package/@evenrealities/even_hub_sdk) — containers, 1-bit images, touchpad/ring events
+- **Glasses:** [Even Hub SDK](https://www.npmjs.com/package/@evenrealities/even_hub_sdk) for containers, 4-bit images, and touchpad/ring events
 - **Layout:** [@evenrealities/pretext](https://www.npmjs.com/package/@evenrealities/pretext) for text measurement
-- **Images:** [upng-js](https://www.npmjs.com/package/upng-js) for coin frame decoding/encoding
+- **Images:** [upng-js](https://www.npmjs.com/package/upng-js) for image decoding and encoding
 
 ## Project structure
 
@@ -37,22 +51,25 @@ EvenHeadsOrTails/
 ├── src/
 │   ├── main.ts       # SDK bridge, containers, input routing
 │   ├── flip.ts       # Flip animation and result logic
+│   ├── roll.ts       # Dice roll animation and result logic
+│   ├── dice.ts       # Die face and tumble image processing
 │   ├── layout.ts     # Container definitions
 │   ├── drizzle.ts    # Background animation frames
-│   ├── assets.ts     # Coin image loading
+│   ├── assets.ts     # Coin and banner image loading
 │   ├── bridgeQueue.ts# Serial BLE bridge-call queue
 │   ├── keepAlive.ts  # WebView keep-alive (audio + Web Lock)
 │   ├── storage.ts    # Tally + settings persistence
 │   └── preview.ts    # Phone-side HUD mirror
 ├── public/coin/      # Coin frame art (heads/tails, half, rotated)
+├── public/dice/      # Dice art (see assets/dice-asset-spec.md)
 ├── app.json          # Even Hub manifest
 └── vite.config.ts    # Dev server (port 5173, LAN binding)
 ```
 
 ## Prerequisites
 
-- **Even Realities** — G2 glasses and the [Even App](https://www.evenrealities.com/) (so you can open the widget and see the coin HUD on your glasses).
-- **Node.js** — v20.19.0 or newer. [Download Node.js](https://nodejs.org/) if you don’t have it; the installer is enough.
+- **Even Realities:** G2 glasses and the [Even App](https://www.evenrealities.com/), so you can open the widget on your glasses.
+- **Node.js:** v20.19.0 or newer. [Download Node.js](https://nodejs.org/) if you don't have it.
 
 ## Setup
 
@@ -79,14 +96,14 @@ EvenHeadsOrTails/
    - **Real glasses:** `npx evenhub qr --url http://<your-computer-ip>:5173` and scan the QR code with the Even App to open the widget on your G2 glasses.
 
 4. **Try it**
-   - On your **phone:** Open the same URL in a browser to see the [help page](index.html) — a live HUD preview and the settings toggles.
-   - On your **glasses:** Swipe up to flip; the coin tumbles and lands on heads or tails.
+   - On your **phone:** Open the same URL in a browser to see the [help page](index.html) with a live HUD preview and settings.
+   - On your **glasses:** Pick a mode on the home screen, then swipe up to flip or roll.
 
 ## Usage on the glasses
 
-- **Swipe up** — Flip the coin. Swipe up again on a result to flip immediately.
-- **Tap / swipe down** — Dismiss the result and return to the idle prompt.
-- **Double-tap (from idle)** — Open the exit dialog.
+- **Swipe up:** Flip the coin, or roll the die in dice mode. Swipe up on a result to go again.
+- **Tap / swipe down:** Dismiss the result and return to the idle prompt.
+- **Double-tap:** Open the settings menu (home, background, tally, exit); double-tap again to close it. On the home screen, double-tap opens the exit prompt.
 
 ## Scripts
 
@@ -110,6 +127,7 @@ npm run pack
 ## Features (summary)
 
 - **Fair flips:** Outcomes use `crypto.getRandomValues()` for a true 50/50.
-- **Animated tumble:** Multi-frame coin rotation over a drizzle background.
-- **Tally counter:** Optional running Heads/Tails totals, persisted across sessions, with a reset option.
-- **Settings (phone):** Toggle the background pattern, the tally counter, and reset-on-startup; reset the tally on demand.
+- **Dice mode:** Roll a pewter pip d6. The die tumbles through isometric poses over a decelerating debris field, then settles onto the rolled face. Rolls are unbiased (rejection sampling).
+- **Animated tumble:** Multi-frame coin/die rotation over a drizzle background.
+- **Tally counter:** Optional running Heads/Tails totals (or roll count and last roll in dice mode), persisted across sessions, with a reset option.
+- **Settings (phone + glasses):** Mode, background pattern, tally counter, reset on startup, and reset on demand, from the phone page or the on-glasses menu.

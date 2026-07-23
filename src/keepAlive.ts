@@ -13,6 +13,11 @@ let active = false
 
 export function activateKeepAlive(): void {
   if (active) return
+  // One-shot regardless of which mechanisms engage below. Setting the flag
+  // only on AudioContext success meant that where AudioContext is unavailable,
+  // every subsequent gesture re-entered this function and queued another
+  // never-released Web Lock request — an unbounded per-tap leak.
+  active = true
 
   try {
     const Ctor: typeof AudioContext =
@@ -29,7 +34,6 @@ export function activateKeepAlive(): void {
     oscillator.connect(gainNode)
     gainNode.connect(audioCtx.destination)
     oscillator.start()
-    active = true
 
     audioCtx.addEventListener('statechange', () => {
       if (audioCtx?.state === 'suspended') {

@@ -1,48 +1,85 @@
-import { getTextWidth } from '@evenrealities/pretext'
+// Ambient rain: seeded stippling that falls around the coin/die art during
+// idle, flip, and landing phases. The dice roll's debris field is the separate
+// rollField.ts; both render on the shared charGrid.
 
-export type DrizzlePhase = 'idle' | 'up' | 'down' | 'landed'
+import {
+  COLS,
+  ROWS,
+  COIN_ROW_TOP,
+  COIN_ROW_BOT,
+  COIN_COL_LEFT,
+  COIN_COL_RIGHT,
+  layoutRow,
+  mulberry32,
+} from './charGrid'
+
+export type DrizzlePhase =
+  | 'idle'
+  | 'up'
+  | 'down'
+  | 'landed'
+  // Dice roll: a persistent debris field streaming downward past the die
+  // (rendered by rollField.ts's makeRollFieldFrame, not makeDrizzleFrame).
+  | 'motion'
 
 const IDLE_PALETTE = ['·', '·', '·', '°']
 
-const PALETTES: Record<DrizzlePhase, string[]> = {
-  idle: IDLE_PALETTE,
-  up: ['↑', '▲', '△', '·'],
-  down: ['↓', '▼', '▽', '·'],
-  landed: IDLE_PALETTE,
+interface PhaseStyle {
+  palette: string[]
+  /** Densities per row band: above the die, through its band, below it. */
+  above: number
+  through: number
+  below: number
 }
 
-const CELL_W = 16
-const COLS = 35
-const ROWS = 9
+type PaletteDrizzlePhase = Exclude<DrizzlePhase, 'motion'>
 
-const COIN_ROW_TOP = 2
-const COIN_ROW_BOT = 7
-const COIN_COL_LEFT = 13
-const COIN_COL_RIGHT = 22
+const PHASE_STYLES: Record<PaletteDrizzlePhase, PhaseStyle> = {
+  idle: { palette: IDLE_PALETTE, above: 0.1, through: 0.02, below: 0.08 },
+  up: { palette: ['↑', '▲', '△', '·'], above: 0.15, through: 0.02, below: 0.12 },
+  down: { palette: ['↓', '▼', '▽', '·'], above: 0.15, through: 0.02, below: 0.12 },
+  landed: { palette: IDLE_PALETTE, above: 0.15, through: 0.05, below: 0.12 },
+}
 
-const SPACE_W = getTextWidth(' ') || 4
-
-function mulberry32(seed: number): () => number {
-  let s = seed | 0
-  return () => {
-    s = (s + 0x6d2b79f5) | 0
-    let t = Math.imul(s ^ (s >>> 15), 1 | s)
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
-  }
+// Rain columns per row category, precomputed once: the geometry is fixed and
+// makeDrizzleFrame runs on every ambient tick. OPEN_COLS skips the coin's
+// footprint for coin-band rows; readers never mutate these.
+const ALL_COLS: number[] = []
+const OPEN_COLS: number[] = []
+for (let c = 0; c < COLS; c++) {
+  ALL_COLS.push(c)
+  if (c < COIN_COL_LEFT || c > COIN_COL_RIGHT) OPEN_COLS.push(c)
 }
 
 export function makeInitialDrizzleFrame(): string {
   return '\n'.repeat(ROWS - 1)
 }
 
-export function makeDrizzleFrame(phase: DrizzlePhase, seed: number): string {
-  const rng = mulberry32(seed)
-  const palette = PALETTES[phase]
+// Stratified placement: split the available columns into N even segments and
+// drop one glyph at a random spot in each. Even spread, still random — avoids
+// the clustering of independent per-cell rolls.
+function placeGlyphs(
+  allowed: number[],
+  density: number,
+  rng: () => number,
+  into: Set<number>,
+): void {
+  const count = Math.round(allowed.length * density)
+  for (let i = 0; i < count; i++) {
+    const lo = Math.floor((i * allowed.length) / count)
+    const hi = Math.floor(((i + 1) * allowed.length) / count)
+    const idx = lo + Math.floor(rng() * Math.max(1, hi - lo))
+    into.add(allowed[Math.min(idx, allowed.length - 1)])
+  }
+}
 
-  const aboveDensity = phase === 'idle' ? 0.10 : 0.15
-  const belowDensity = phase === 'idle' ? 0.08 : 0.12
-  const throughDensity = phase === 'landed' ? 0.05 : 0.02
+export function makeDrizzleFrame(
+  phase: PaletteDrizzlePhase,
+  seed: number,
+): string {
+  const rng = mulberry32(seed)
+  const style = PHASE_STYLES[phase]
+  const palette = style.palette
 
   const lines: string[] = []
   for (let r = 0; r < ROWS; r++) {
@@ -56,46 +93,21 @@ export function makeDrizzleFrame(phase: DrizzlePhase, seed: number): string {
 
     const isCoinBand = r >= COIN_ROW_TOP && r <= COIN_ROW_BOT
     const density = isCoinBand
-      ? throughDensity
+      ? style.through
       : r < COIN_ROW_TOP
-        ? aboveDensity
-        : belowDensity
+        ? style.above
+        : style.below
 
-    // Columns available for rain (skip the coin's footprint on coin-band rows).
-    const allowed: number[] = []
-    for (let c = 0; c < COLS; c++) {
-      if (isCoinBand && c >= COIN_COL_LEFT && c <= COIN_COL_RIGHT) continue
-      allowed.push(c)
-    }
+    const allowed = isCoinBand ? OPEN_COLS : ALL_COLS
 
-    // Stratified placement: split the available columns into N even segments and
-    // drop one glyph at a random spot in each. Even spread, still random — avoids
-    // the clustering of independent per-cell rolls.
-    const count = Math.round(allowed.length * density)
     const glyphCols = new Set<number>()
-    for (let i = 0; i < count; i++) {
-      const lo = Math.floor((i * allowed.length) / count)
-      const hi = Math.floor(((i + 1) * allowed.length) / count)
-      const idx = lo + Math.floor(rng() * Math.max(1, hi - lo))
-      glyphCols.add(allowed[Math.min(idx, allowed.length - 1)])
-    }
+    placeGlyphs(allowed, density, rng, glyphCols)
 
-    let row = ''
-    let curX = 0
-    for (let c = 0; c < COLS; c++) {
-      if (glyphCols.has(c)) {
-        const glyph = palette[Math.floor(rng() * palette.length)]
-        row += glyph
-        curX += getTextWidth(glyph)
-      }
-      const cellEndX = (c + 1) * CELL_W
-      while (curX + SPACE_W <= cellEndX) {
-        row += ' '
-        curX += SPACE_W
-      }
-    }
-
-    lines.push(row.replace(/\s+$/, ''))
+    lines.push(
+      layoutRow(c =>
+        glyphCols.has(c) ? palette[Math.floor(rng() * palette.length)] : null,
+      ),
+    )
   }
 
   return lines.join('\n')

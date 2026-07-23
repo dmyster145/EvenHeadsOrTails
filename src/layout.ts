@@ -13,6 +13,15 @@ export const COIN_X = Math.round((CANVAS_W - COIN_W) / 2)
 // the bottom, so there's no toss peak to clear.
 export const COIN_Y = Math.round((CANVAS_H - COIN_H) / 2)
 
+// Home-screen banner plaque, top-centered. A single image container, so its
+// width is bounded by the firmware cap of 288px; the height follows the
+// cropped art's ~5.05:1 aspect (public/banner.png). The menu rows start below.
+export const BANNER_W = 288
+export const BANNER_H = 57
+export const BANNER_X = Math.round((CANVAS_W - BANNER_W) / 2)
+export const BANNER_Y = 6
+
+
 export const PAD = 4
 export const LINE_H = 27
 
@@ -33,6 +42,8 @@ export const IDS = {
   statusBar: 3,
   coinImage: 4,
   tallyBar: 5,
+  banner: 6,
+  homeMenu: 7,
 } as const
 
 export const NAMES = {
@@ -41,6 +52,8 @@ export const NAMES = {
   statusBar: 'statusBar',
   coinImage: 'coinImage',
   tallyBar: 'tallyBar',
+  banner: 'banner',
+  homeMenu: 'homeMenu',
 } as const
 
 /**
@@ -127,4 +140,37 @@ export const makeCoinImage = (): ImageContainerProperty =>
     height: COIN_H,
     containerID: IDS.coinImage,
     containerName: NAMES.coinImage,
+  })
+
+// Home-screen option rows: a full-width text container under the banner
+// (mirrors the status bar's geometry, which centers text reliably); rows are
+// centered with space padding like the status line.
+export const HOME_MENU_H = 100
+export const HOME_MENU_Y = 104
+export const HOME_MENU_INNER_W = CANVAS_W - 2 * PAD
+
+export const makeHomeMenu = (): TextContainerProperty =>
+  new TextContainerProperty({
+    xPosition: 0,
+    yPosition: HOME_MENU_Y,
+    width: CANVAS_W,
+    height: HOME_MENU_H,
+    borderWidth: 0,
+    borderColor: 0,
+    borderRadius: 0,
+    paddingLength: PAD,
+    containerID: IDS.homeMenu,
+    containerName: NAMES.homeMenu,
+    content: ' ',
+    isEventCapture: 0,
+  })
+
+export const makeBanner = (): ImageContainerProperty =>
+  new ImageContainerProperty({
+    xPosition: BANNER_X,
+    yPosition: BANNER_Y,
+    width: BANNER_W,
+    height: BANNER_H,
+    containerID: IDS.banner,
+    containerName: NAMES.banner,
   })

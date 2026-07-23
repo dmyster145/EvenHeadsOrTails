@@ -6,10 +6,17 @@ export interface Tally {
   tails: number
 }
 
+export interface DiceStats {
+  rolls: number
+  last: number | null
+}
+
 const TALLY_KEY = 'tally'
 const BG_KEY = 'bgPattern'
 const TALLY_ENABLED_KEY = 'tallyEnabled'
 const RESET_ON_STARTUP_KEY = 'resetOnStartup'
+const DICE_MODE_KEY = 'diceMode'
+const DICE_STATS_KEY = 'diceStats'
 
 export async function loadTally(bridge: EvenAppBridge): Promise<Tally> {
   const raw = await kvGet(bridge, TALLY_KEY)
@@ -91,3 +98,39 @@ export const saveResetOnStartup = (
   bridge: EvenAppBridge,
   enabled: boolean,
 ): void => saveFlag(bridge, RESET_ON_STARTUP_KEY, enabled)
+
+export const peekDiceMode = (): boolean => peekFlag(DICE_MODE_KEY, false)
+
+export const loadDiceMode = (bridge: EvenAppBridge): Promise<boolean> =>
+  loadFlag(bridge, DICE_MODE_KEY, false)
+
+export const saveDiceMode = (bridge: EvenAppBridge, enabled: boolean): void =>
+  saveFlag(bridge, DICE_MODE_KEY, enabled)
+
+export async function loadDiceStats(
+  bridge: EvenAppBridge,
+): Promise<DiceStats> {
+  const raw = await kvGet(bridge, DICE_STATS_KEY)
+  if (!raw) return { rolls: 0, last: null }
+  try {
+    const parsed = JSON.parse(raw) as Partial<DiceStats>
+    return {
+      rolls: Number(parsed.rolls) || 0,
+      last: typeof parsed.last === 'number' ? parsed.last : null,
+    }
+  } catch {
+    return { rolls: 0, last: null }
+  }
+}
+
+export function saveDiceStats(bridge: EvenAppBridge, stats: DiceStats): void {
+  kvSet(bridge, DICE_STATS_KEY, JSON.stringify(stats))
+}
+
+export function formatRolls(stats: DiceStats): string {
+  return `Rolls: ${stats.rolls}`
+}
+
+export function formatLast(stats: DiceStats): string {
+  return `Last rolled: ${stats.last ?? '-'}`
+}

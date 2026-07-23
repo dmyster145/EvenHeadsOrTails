@@ -1,7 +1,12 @@
 import type { EvenAppBridge } from '@evenrealities/even_hub_sdk'
 import { kvGet, kvSet } from './kv'
 
+// Bump whenever renderProcessed's output format or the source PNGs change, so
+// stale processed copies in the kv cache are abandoned instead of served.
 const CACHE_VERSION = 'v5'
+// String.fromCharCode(...chunk) passes the chunk as individual arguments; one
+// call over a whole image (banner, coin frames) exceeds the engine's argument
+// limit and throws, so encode in slices safely under it.
 const BASE64_CHUNK = 0x8000
 
 function bytesToBase64(bytes: Uint8Array): string {

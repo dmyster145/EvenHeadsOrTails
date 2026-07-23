@@ -24,6 +24,18 @@ export async function kvGet(bridge: EvenAppBridge, key: string): Promise<string>
     return ''
   }
 
+  // A kvSet for this key may have landed while the SDK read was in flight.
+  // localStorage is authoritative, so the newer local value wins — without
+  // this re-check the back-fill below would clobber it with the stale SDK
+  // copy AND return the stale value to the caller. (No await between this
+  // re-check and the back-fill write, so nothing can interleave.)
+  try {
+    const local = window.localStorage.getItem(key)
+    if (local) return local
+  } catch {
+    // localStorage unavailable; fall through.
+  }
+
   if (sdk) {
     try {
       window.localStorage.setItem(key, sdk)
@@ -40,5 +52,15 @@ export function kvSet(bridge: EvenAppBridge, key: string, value: string): void {
   } catch {
     // localStorage write failed (quota?); the SDK write below still runs.
   }
-  void enqueue(() => bridge.setLocalStorage(key, value))
+  // One retry, then a loud log. A lost SDK copy is what lets a later
+  // localStorage eviction resurrect stale data (the accepted tradeoff of the
+  // dual-store design — see the header comment); a write the SDK ACKs but
+  // silently drops is not detectable in software, but a rejected write is,
+  // so it should never vanish without a trace.
+  const write = () => enqueue(() => bridge.setLocalStorage(key, value))
+  void write().catch(() =>
+    write().catch(err =>
+      console.error(`SDK store write failed for "${key}":`, err),
+    ),
+  )
 }
